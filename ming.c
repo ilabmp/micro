@@ -1,3 +1,15 @@
+void myTimer_a(void) {
+	TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
+	static int a = 0, b = 0; //, d = 0;
+	a = b * 10;
+	PWMPulseWidthSet(PWM_BASE, PWM_OUT_0, a + 1);
+	if (b < 40)
+		b++;
+	if (b == 40)
+		b = 0;
+
+
+}
 void myTimer_b(void) {
   TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	static unsigned long ulValue;
