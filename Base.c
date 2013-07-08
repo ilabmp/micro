@@ -274,7 +274,7 @@ void UARTIntHandler0() {
 	UARTIntClear(UART0_BASE, ulStatus);
 
 	while (UARTCharsAvail(UART0_BASE)) {
-		tempPacket = UARTCharGetNonBlocking(UART0_BASE);
+		tempPacket = UARTCharGet(UART0_BASE);
 	}
 }
 
