@@ -22,6 +22,7 @@ char header = 0x88;
 char leagth = 0x14;
 char p[3];
 char q[3];
+char temp;
 
 void myTimer(void) {
 
@@ -66,7 +67,7 @@ void myTimer(void) {
 }
 
 void msg() {
-
+	temp = 0;
 	data[0] = header;
 	data[1] = leagth;
 
@@ -77,49 +78,60 @@ void msg() {
 		data[i * 2 + 2] = p[i] & 0xFF00 >> 8;
 		data[i * 2 + 3] = p[i] & 0x00FF;
 	}
+	for (i = 3; i < 8; i++) {
+
+		data[i * 2 + 2] = q[i] & 0xFF00 >> 8;
+		data[i * 2 + 3] = q[i] & 0x00FF;
+	}
+	for (i = 0; i < 18; i++) {
+		temp += data[i];
+
+	}
+	data[18] = temp & 0xFF00 >> 8;
+	data[19] = temp & 0x00FF;
 
 	UARTSend0((unsigned char*) data, 20);
 }
 
-
-
 void Timer_A() {
-TimerConfigure(TIMER0_BASE, TIMER_CFG_32_BIT_PER); // 32-bits periodic timer
-TimerLoadSet(TIMER0_BASE, TIMER_A, SysCtlClockGet() / 1000);
-TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
-TimerIntRegister(TIMER0_BASE, TIMER_A, myTimer);
-TimerEnable(TIMER0_BASE, TIMER_A);
+	TimerConfigure(TIMER0_BASE, TIMER_CFG_32_BIT_PER); // 32-bits periodic timer
+	TimerLoadSet(TIMER0_BASE, TIMER_A, SysCtlClockGet() / 1000);
+	TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
+	TimerIntRegister(TIMER0_BASE, TIMER_A, myTimer);
+	TimerEnable(TIMER0_BASE, TIMER_A);
 }
 void UARTSend0(const unsigned char *pucBuffer, unsigned long ulCount) {	// Loop while there are more characters to send.
-while (ulCount--) { // Write the next character to the UART.
-	UARTCharSend(UART0_BASE, *pucBuffer++);
-}
+	while (ulCount--) { // Write the next character to the UART.
+		UARTCharSend(UART0_BASE, *pucBuffer++);
+	}
 }
 
 int main(void) {
 
-/*SysCtlClockSet(
- SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC | SYSCTL_OSC_MAIN
- | SYSCTL_XTAL_8MHZ);*/
-SysCtlClockSet(
-		SYSCTL_SYSDIV_10 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_8MHZ); //20MHz
+	/*SysCtlClockSet(
+	 SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC | SYSCTL_OSC_MAIN
+	 | SYSCTL_XTAL_8MHZ);*/
+	SysCtlClockSet(
+			SYSCTL_SYSDIV_10 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN
+					| SYSCTL_XTAL_8MHZ); //20MHz
 
-SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
-SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0); // Timer 사용
-GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_4);
-GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_5);
-GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_6);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0); // Timer 사용
+	GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_4);
+	GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_5);
+	GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_6);
 
-SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
-SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA); // Enable processor interrupts.
-IntMasterEnable();
-GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1); // Configure the UART for 115,200, 8-N-1 operation.
-UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200,
-		(UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE)); // Enable the UART interrupt.
-IntEnable(INT_UART0);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA); // Enable processor interrupts.
+	IntMasterEnable();
+	GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1); // Configure the UART for 115,200, 8-N-1 operation.
+	UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), 115200,
+			(UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE)); // Enable the UART interrupt.
+	IntEnable(INT_UART0);
 
-Timer_A();
-while (1) {
+	Timer_A();
+	while (1) {
+	}
+
 }
 
-}
