@@ -1,8 +1,11 @@
 #define BUFFSIZE 18
 
 void UARTSend0(const unsigned char *pucBuffer, unsigned long ulCount);
+void msg(void);
+void UARTIntHandler0();
 
 char data[20];
+char data_2[20];
 int index_j;
 char buffer[BUFFSIZE];
 char packet[30];
@@ -18,11 +21,13 @@ volatile int pitch = 0;
 unsigned long ADC_resultValue0 = 0;
 unsigned long ADC_resultValue1 = 0;
 unsigned long ADC_resultValue2 = 0;
-char header = 0x88;
-char leagth = 0x14;
+unsigned char header = 0x88;
+unsigned char leagth = 0x14;
 char p[3];
-char q[3];
+char p_2 = 0;
+char q[4];
 char temp;
+char haptic = 0;
 
 void myTimer(void) {
 
@@ -35,6 +40,7 @@ void myTimer(void) {
 		p[0] = 1;
 		temp_a = 1;
 		msg();
+
 	} else if (GPIOPinRead(GPIO_PORTD_BASE, GPIO_PIN_4) == 0 && temp_a == 1) {
 
 		p[0] = 0;
@@ -64,9 +70,27 @@ void myTimer(void) {
 
 	}
 
+
+}
+void myTimer_2(void) {
+
+	TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+
+	if (p_2 == 1) {
+		GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_5, GPIO_PIN_5);
+	} else if (p_2 == 2) {
+		GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6, GPIO_PIN_6);
+	} else if (p_2 == 3) {
+		GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_4, GPIO_PIN_4);
+	} else if (p_2 == 0) {
+		GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_5, 0);
+		GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6, 0);
+		GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_4, 0);
+	}
+
 }
 
-void msg() {
+void msg(void) {
 	temp = 0;
 	data[0] = header;
 	data[1] = leagth;
@@ -75,22 +99,33 @@ void msg() {
 
 	for (i = 0; i < 3; i++) {
 
-		data[i * 2 + 2] = p[i] & 0xFF00 >> 8;
+		data[i * 2 + 2] = (p[i] & 0xFF00) >> 8;
 		data[i * 2 + 3] = p[i] & 0x00FF;
 	}
-	for (i = 3; i < 8; i++) {
+	for (i = 0; i < 4; i++) {
 
-		data[i * 2 + 2] = q[i] & 0xFF00 >> 8;
-		data[i * 2 + 3] = q[i] & 0x00FF;
+		data[i * 2 + 8] = (q[i] & 0xFF00) >> 8;
+		data[i * 2 + 9] = q[i] & 0x00FF;
 	}
+	data[16] = (haptic & 0xFF00) >> 8;
+	data[17] = haptic & 0x00FF;
+
 	for (i = 0; i < 18; i++) {
 		temp += data[i];
 
 	}
-	data[18] = temp & 0xFF00 >> 8;
+	data[18] = (temp & 0xFF00) >> 8;
 	data[19] = temp & 0x00FF;
-
 	UARTSend0((unsigned char*) data, 20);
+}
+void msg_2(void) {
+
+
+
+	p_2 = ((data[2] & 0x00FF) << 8) + (data[3] & 0x00FF);
+
+
+
 }
 
 void Timer_A() {
@@ -100,12 +135,36 @@ void Timer_A() {
 	TimerIntRegister(TIMER0_BASE, TIMER_A, myTimer);
 	TimerEnable(TIMER0_BASE, TIMER_A);
 }
+
+void Timer_B() {
+	TimerConfigure(TIMER1_BASE, TIMER_CFG_32_BIT_PER); // 32-bits periodic timer
+	TimerLoadSet(TIMER1_BASE, TIMER_A, SysCtlClockGet() / 1000);
+	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+	TimerIntRegister(TIMER1_BASE, TIMER_A, myTimer_2);
+	TimerEnable(TIMER1_BASE, TIMER_A);
+}
 void UARTSend0(const unsigned char *pucBuffer, unsigned long ulCount) {	// Loop while there are more characters to send.
 	while (ulCount--) { // Write the next character to the UART.
-		UARTCharSend(UART0_BASE, *pucBuffer++);
+		UARTCharPut(UART0_BASE, *pucBuffer++);
 	}
 }
+void UARTIntHandler0() {
+	unsigned long ulStatus;
+	static int i = 0;
+	ulStatus = UARTIntStatus(UART0_BASE, true);
 
+	UARTIntClear(UART0_BASE, ulStatus);
+
+	while (UARTCharsAvail(UART0_BASE)) {
+		if (i < 21) {
+			data_2[i] = UARTCharGet(UART0_BASE);
+			i++;
+		} else if (i == 21)
+			i = 0;
+
+	}
+	msg_2();
+}
 int main(void) {
 
 	/*SysCtlClockSet(
@@ -116,11 +175,15 @@ int main(void) {
 					| SYSCTL_XTAL_8MHZ); //20MHz
 
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0); // Timer 사용
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);// Timer 사용
 	GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_4);
 	GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_5);
 	GPIOPinTypeGPIOInput(GPIO_PORTD_BASE, GPIO_PIN_6);
-
+	GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_5);
+	GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_6);
+	GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_4);
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
 	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA); // Enable processor interrupts.
 	IntMasterEnable();
@@ -129,7 +192,11 @@ int main(void) {
 			(UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE)); // Enable the UART interrupt.
 	IntEnable(INT_UART0);
 
+	UARTIntRegister(UART0_BASE, UARTIntHandler0);
+
+	UARTIntEnable(UART0_BASE, UART_INT_RX | UART_INT_RT);
 	Timer_A();
+	Timer_B();
 	while (1) {
 	}
 
